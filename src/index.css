@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+/* Định nghĩa vùng quét file trực tiếp tại đây */
+@source "../index.html";
+@source "./**/*.{js,ts,jsx,tsx}";
