@@ -32,6 +32,27 @@ const Dashboard = ({ searchTerm }) => {
     fetchData();
   }, []);
 
+  // --- LOGIC LỌC VÀ SẮP XẾP QUAN TRỌNG ---
+  const displayBills = bills
+    .filter(bill => {
+      // 1. Chỉ hiện những người CHƯA TRẢ (Chờ thanh toán hoặc Quá hạn)
+      const isUnpaid = bill.status !== "Đã thanh toán";
+      
+      // 2. Kết hợp với ô tìm kiếm
+      const matchesSearch = 
+        bill.customer?.toLowerCase().includes(searchTerm?.toLowerCase() || "") || 
+        bill.id?.toLowerCase().includes(searchTerm?.toLowerCase() || "");
+        
+      return isUnpaid && matchesSearch;
+    })
+    .sort((a, b) => {
+      // 3. Đẩy người "Quá hạn" lên đầu danh sách
+      if (a.status === "Quá hạn" && b.status !== "Quá hạn") return -1;
+      if (a.status !== "Quá hạn" && b.status === "Quá hạn") return 1;
+      return 0;
+    });
+  // --------------------------------------
+
   const handleOpenAddModal = () => {
     setEditingBill(null);
     setIsModalOpen(true);
@@ -75,20 +96,20 @@ const Dashboard = ({ searchTerm }) => {
     }
   };
 
-  // Tính toán thống kê
-  const totalRevenue = bills
+  // Thống kê vẫn dựa trên toàn bộ 'bills' để tính tổng doanh thu
+  const totalPaid = bills
     .filter(b => b.status === "Đã thanh toán")
     .reduce((sum, b) => sum + b.amount, 0);
 
-  const completionRate = bills.length > 0 
-    ? Math.round((bills.filter(b => b.status === "Đã thanh toán").length / bills.length) * 100)
-    : 0;
+  const pendingAmount = bills
+    .filter(b => b.status === "Chờ thanh toán" || b.status === "Quá hạn")
+    .reduce((sum, b) => sum + b.amount, 0);
 
   const stats = [
-    { id: 1, title: "Doanh Thu", value: totalRevenue.toLocaleString() + "đ", change: `+${completionRate}%`, icon: "💰" },
-    { id: 2, title: "Hóa Đơn", value: bills.length.toString(), change: "Tổng số", icon: "📄" },
-    { id: 3, title: "Khách", value: [...new Set(bills.map(b => b.customer))].length.toString(), change: "Thực tế", icon: "👤" },
-    { id: 4, title: "Quá Hạn", value: bills.filter(b => b.status === "Quá hạn").length.toString(), change: "Cần chú ý", icon: "⚠️" },
+    { id: 1, title: "Đã Thu", value: totalPaid.toLocaleString() + "đ", change: "Thực tế", icon: "💰" },
+    { id: 2, title: "Tiền Nợ", value: pendingAmount.toLocaleString() + "đ", change: "Cần thu", icon: "⏳" },
+    { id: 3, title: "Việc Cần Làm", value: displayBills.length.toString(), change: "HĐ chưa trả", icon: "📋" },
+    { id: 4, title: "Quá Hạn", value: bills.filter(b => b.status === "Quá hạn").length.toString(), change: "Khẩn cấp", icon: "⚠️" },
   ];
 
   if (loading) return (
@@ -101,11 +122,10 @@ const Dashboard = ({ searchTerm }) => {
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-500">
       
-      {/* Header Section: Chuyển sang cột trên mobile, hàng trên desktop */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter italic">DASHBOARD</h2>
-          <p className="text-slate-400 font-bold mt-1 uppercase text-[9px] tracking-[0.2em]">Hệ thống quản lý trực tuyến</p>
+          <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter italic uppercase">Quản Lý Nợ</h2>
+          <p className="text-slate-400 font-bold mt-1 uppercase text-[9px] tracking-[0.2em]">Ưu tiên xử lý các hóa đơn quá hạn</p>
         </div>
         <button 
           onClick={handleOpenAddModal}
@@ -116,19 +136,19 @@ const Dashboard = ({ searchTerm }) => {
         </button>
       </div>
 
-      {/* Stats Grid: 2 cột trên mobile, 4 cột trên desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map(s => <StatCard key={s.id} {...s} />)}
       </div>
 
-      {/* Table Section: Bọc overflow để vuốt ngang trên mobile */}
-      <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100">
-        <div className="overflow-x-auto overflow-y-hidden">
+      <div className="space-y-4">
+        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+          DANH SÁCH CHƯA TRẢ 
+          <span className="bg-rose-100 text-rose-600 text-xs px-2 py-0.5 rounded-lg">{displayBills.length}</span>
+        </h3>
+        
+        <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100">
           <BillTable 
-            bills={bills.filter(b => 
-              b.customer?.toLowerCase().includes(searchTerm?.toLowerCase() || "") || 
-              b.id?.toLowerCase().includes(searchTerm?.toLowerCase() || "")
-            )} 
+            bills={displayBills} 
             onDelete={handleDeleteBill}
             onEdit={handleOpenEditModal}
           />
