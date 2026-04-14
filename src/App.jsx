@@ -10,17 +10,14 @@ import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 
 function App() {
-  // 1. Quản lý trạng thái Đăng nhập & Người dùng
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [adminName, setAdminName] = useState("Tú Đẹp Trai"); // Tên mặc định
-  
-  // 2. Quản lý dữ liệu Hóa đơn
+  const [adminName, setAdminName] = useState("Tú Đẹp Trai"); 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const API_URL = "https://sheetdb.io/api/v1/pz1au9f5wo0ba";
 
-  // Kiểm tra phiên đăng nhập cũ từ LocalStorage khi khởi chạy
   useEffect(() => {
     const savedUser = localStorage.getItem('rental_hub_user');
     const savedName = localStorage.getItem('admin_display_name');
@@ -32,7 +29,6 @@ function App() {
     fetchData();
   }, []);
 
-  // Hàm lấy dữ liệu từ Google Sheets
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -40,7 +36,7 @@ function App() {
       const data = await response.json();
       const formattedData = data.map(item => ({
         ...item,
-        amount: Number(item.amount) || 0 // Bảo vệ dữ liệu nếu amount không phải số
+        amount: Number(item.amount) || 0 
       }));
       setBills(formattedData);
     } catch (error) {
@@ -50,25 +46,23 @@ function App() {
     }
   };
 
-  // Hàm xử lý Đăng nhập
   const handleLogin = (username) => {
     localStorage.setItem('rental_hub_user', username);
     setIsLoggedIn(true);
   };
 
-  // Hàm xử lý Đăng xuất
   const handleLogout = () => {
     localStorage.removeItem('rental_hub_user');
     setIsLoggedIn(false);
   };
 
-  // Hàm cập nhật tên hiển thị Admin
   const updateAdminName = (newName) => {
     setAdminName(newName);
     localStorage.setItem('admin_display_name', newName);
   };
 
-  // Giao diện chờ khi đang tải dữ liệu
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-screen bg-slate-900">
       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -76,57 +70,46 @@ function App() {
     </div>
   );
 
-  // 3. Điều hướng: Nếu chưa đăng nhập thì buộc phải ở trang Login
   if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
   return (
     <Router>
-      <div className="min-h-screen bg-slate-50 flex">
-        {/* Sidebar nhận hàm logout để thoát ứng dụng */}
-        <Sidebar onLogout={handleLogout} />
+      <div className="min-h-screen bg-slate-50 flex relative overflow-x-hidden">
         
-        <div className="flex-1 ml-64 min-w-0">
-          {/* Header hiển thị tên Admin động */}
+        {/* 1. SIDEBAR: Thêm logic để ẩn/hiện mượt mà trên Mobile */}
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          toggleSidebar={toggleSidebar} 
+          onLogout={handleLogout} 
+        />
+        
+        {/* 2. OVERLAY: Lớp phủ đen khi mở Sidebar trên Mobile */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
+            onClick={toggleSidebar}
+          ></div>
+        )}
+
+        {/* 3. MAIN CONTENT: Quan trọng nhất là ml-0 và md:ml-64 */}
+        <div className="flex-1 flex flex-col min-w-0 transition-all duration-300 w-full md:ml-64">
+          
           <Header 
             searchTerm={searchTerm} 
             setSearchTerm={setSearchTerm} 
-            adminName={adminName} 
+            adminName={adminName}
+            toggleSidebar={toggleSidebar}
           />
           
-          <main className="pt-24 pb-10 px-8">
+          <main className="pt-24 pb-10 px-4 md:px-8 w-full max-w-[100vw]">
             <Routes>
-              {/* Trang chủ - Dashboard */}
-              <Route path="/" element={
-                <Dashboard bills={bills} refresh={fetchData} searchTerm={searchTerm} />
-              } />
-              
-              {/* Trang quản lý hóa đơn */}
-              <Route path="/hoadon" element={
-                <BillsPage bills={bills} refresh={fetchData} searchTerm={searchTerm} />
-              } />
-              
-              {/* Trang danh sách khách hàng */}
-              <Route path="/khachhang" element={
-                <CustomersPage bills={bills} />
-              } />
-              
-              {/* Trang báo cáo doanh thu */}
-              <Route path="/baocao" element={
-                <ReportsPage bills={bills} />
-              } />
-              
-              {/* Trang cài đặt hệ thống */}
-              <Route path="/caidat" element={
-                <SettingsPage 
-                  adminName={adminName} 
-                  setAdminName={updateAdminName} 
-                  onLogout={handleLogout} 
-                />
-              } />
-
-              {/* Tự động chuyển về Dashboard nếu đường dẫn sai */}
+              <Route path="/" element={<Dashboard bills={bills} refresh={fetchData} searchTerm={searchTerm} />} />
+              <Route path="/hoadon" element={<BillsPage bills={bills} refresh={fetchData} searchTerm={searchTerm} />} />
+              <Route path="/khachhang" element={<CustomersPage bills={bills} />} />
+              <Route path="/baocao" element={<ReportsPage bills={bills} />} />
+              <Route path="/caidat" element={<SettingsPage adminName={adminName} setAdminName={updateAdminName} onLogout={handleLogout} />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </main>
